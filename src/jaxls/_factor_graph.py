@@ -394,21 +394,26 @@ class FactorGraph:
         )
 
 
+from typing import Generic
+from typing_extensions import TypeVarTuple, Unpack
+Args = TypeVarTuple("Args")
+Args_ = TypeVarTuple("Args_")
+
 @jdc.pytree_dataclass
-class Factor[*Args]:
+class Factor(Generic[Unpack[Args]]):
     """A single cost in our factor graph."""
 
-    compute_residual: jdc.Static[Callable[[VarValues, *Args], jax.Array]]
-    args: tuple[*Args]
+    compute_residual: jdc.Static[Callable[[VarValues, Unpack[Args]], jax.Array]]
+    args: tuple[Unpack[Args]]
     jac_mode: jdc.Static[Literal["auto", "forward", "reverse"]] = "auto"
 
     @staticmethod
     @deprecated("Use Factor() directly instead of Factor.make()")
-    def make[*Args_](
-        compute_residual: jdc.Static[Callable[[VarValues, *Args_], jax.Array]],
-        args: tuple[*Args_],
+    def make(
+        compute_residual: jdc.Static[Callable[[VarValues, Unpack[Args_]], jax.Array]],
+        args: tuple[Unpack[Args_]],
         jac_mode: jdc.Static[Literal["auto", "forward", "reverse"]] = "auto",
-    ) -> Factor[*Args_]:
+    ) -> Factor[Unpack[Args_]]:
         import warnings
 
         warnings.warn(
@@ -436,7 +441,7 @@ class Factor[*Args]:
 
 
 @jdc.pytree_dataclass
-class _AnalyzedFactor[*Args](Factor[*Args]):
+class _AnalyzedFactor(Factor[Unpack[Args]]):
     """Same as `Factor`, but with extra fields."""
 
     # These need defaults because `jac_mode` has a default.
@@ -448,7 +453,7 @@ class _AnalyzedFactor[*Args](Factor[*Args]):
 
     @staticmethod
     @jdc.jit
-    def _make[*Args_](factor: Factor[*Args_]) -> _AnalyzedFactor[*Args_]:
+    def _make(factor: Factor[Unpack[Args_]]) -> _AnalyzedFactor[Unpack[Args_]]:
         """Construct a factor for our factor graph."""
 
         compute_residual = factor.compute_residual

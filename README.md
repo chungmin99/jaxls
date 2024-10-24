@@ -1,3 +1,7 @@
+Compatible with `python=<3.12` via removing type annotations, created for RSRD code release.
+
+-
+
 # jaxls
 
 [![pyright](https://github.com/brentyi/jaxls/actions/workflows/pyright.yml/badge.svg)](https://github.com/brentyi/jaxls/actions/workflows/pyright.yml)

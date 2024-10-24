@@ -3,13 +3,16 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import total_ordering
-from typing import Any, Callable, ClassVar, cast, overload
+from typing import Any, Callable, ClassVar, Generic, TypeVar, cast, overload
 
 import jax
 import jax_dataclasses as jdc
 import numpy as onp
 from jax import flatten_util
 from jax import numpy as jnp
+
+T = TypeVar("T")
+T_ = TypeVar("T_")
 
 
 @total_ordering
@@ -31,7 +34,7 @@ class _HashableSortableMeta(type):
 
 
 @dataclass(frozen=True)
-class VarTypeOrdering:
+class VarTypeOrdering(Generic[T]):
     """Object describing how variables are ordered within a `VarValues` object
     or tangent vector.
 
@@ -44,7 +47,7 @@ class VarTypeOrdering:
 
     order_from_type: dict[type[Var[Any]], int]
 
-    def ordered_dict_items[T](
+    def ordered_dict_items(
         self,
         var_type_mapping: dict[type[Var[Any]], T],
     ) -> list[tuple[type[Var[Any]], T]]:
@@ -54,7 +57,7 @@ class VarTypeOrdering:
 
 
 @jdc.pytree_dataclass
-class VarWithValue[T]:
+class VarWithValue(Generic[T]):
     """Structure containing a single variable with a value, or multiple if a
     leading batch axis is present. Returned by `Var.with_value()`."""
 
@@ -63,7 +66,7 @@ class VarWithValue[T]:
 
 
 @jdc.pytree_dataclass
-class Var[T](metaclass=_HashableSortableMeta):
+class Var(Generic[T], metaclass=_HashableSortableMeta):
     """A symbolic representation of an optimization variable."""
 
     id: jax.Array | int
@@ -84,7 +87,7 @@ class Var[T](metaclass=_HashableSortableMeta):
         return VarWithValue(self, value)
 
     @overload
-    def __init_subclass__[T_](
+    def __init_subclass__(
         cls,
         *,
         default_factory: Callable[[], T_],
@@ -99,7 +102,7 @@ class Var[T](metaclass=_HashableSortableMeta):
         default_factory: Callable[[], Any],
     ) -> None: ...
 
-    def __init_subclass__[T_](
+    def __init_subclass__(
         cls,
         *,
         default_factory: Callable[[], T_] | None = None,
@@ -173,18 +176,18 @@ class VarValues:
     ids_from_type: dict[type[Var[Any]], jax.Array]
     """Variable ID for each value, sorted in ascending order."""
 
-    def get_value[T](self, var: Var[T]) -> T:
+    def get_value(self, var: Var[T]) -> T:
         """Get the value of a specific variable."""
         assert getattr(var.id, "shape", None) == () or isinstance(var.id, int)
         var_type = type(var)
         index = jnp.searchsorted(self.ids_from_type[var_type], var.id)
         return jax.tree.map(lambda x: x[index], self.vals_from_type[var_type])
 
-    def get_stacked_value[T](self, var_type: type[Var[T]]) -> T:
+    def get_stacked_value(self, var_type: type[Var[T]]) -> T:
         """Get the value of all variables of a specific type."""
         return self.vals_from_type[var_type]
 
-    def __getitem__[T](self, var_or_type: Var[T] | type[Var[T]]) -> T:
+    def __getitem__(self, var_or_type: Var[T] | type[Var[T]]) -> T:
         if isinstance(var_or_type, type):
             return self.get_stacked_value(var_or_type)
         else:
@@ -205,7 +208,8 @@ class VarValues:
                     f"  {var_type.__name__}(" + f"{ids[..., i]}): ".ljust(8) + f"{val},"
                 )
 
-        return f"VarValues(\n{'\n'.join(out_lines)}\n)"
+        joined_lines = '\n'.join(out_lines)
+        return f"VarValues(\n{joined_lines}\n)"
 
     @staticmethod
     def make(variables: Iterable[Var[Any] | VarWithValue[Any]]) -> VarValues:
